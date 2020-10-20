@@ -1,0 +1,32 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  node-up.yml: |
+    groups:
+    - name: server_rules
+      rules:
+      - alert: 机器宕机
+        expr: up{component="node-exporter"} != 1
+        for: 1m
+        labels:
+          severity: "warning"
+          instance: "{{ $labels.instance }}"
+        annotations:
+          summary: "机器 {{ $labels.instance }} 处于down的状态"
+          description: "{{ $labels.instance }} of job {{ $labels.job }}已经处于down状态超过1分钟，请及时处理"
+  cpu-usage.yml: |
+    groups:
+    - name: cpu_rules
+      rules:
+      - alert: cpu 剩余量过低
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 1m
+        labels:
+          severity: "warning"
+          instance: "{{ $labels.instance }}"
+        annotations:
+          summary: "机器 {{ $labels.instance }} cpu 已用超过设定值"
+          description: "{{ $labels.instance }} CPU 用量已超过 85% (currentvalue is: {{ $value }})，请及时处理。"

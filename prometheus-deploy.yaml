@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-core
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      name: prometheus-main
+      labels:
+        app: prometheus
+        component: core
+    spec:
+      serviceAccountName: prometheus-k8s
+      nodeSelector:
+        nodetype: prometheus
+      containers:
+      - name: prometheus
+        image: zqdlove/prometheus:v2.0.0
+        args:
+          - '--storage.tsdb.retention=15d'
+          - '--config.file=/etc/prometheus/prometheus.yaml'
+          - '--storage.tsdb.path=/home/prometheus_data'
+          - '--web.enable-lifecycle' 
+        ports:
+        - name: webui
+          containerPort: 9090
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50M
+          limits:
+            cpu: 100m
+            memory: 100M
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: data
+          mountPath: /home/prometheus_data
+        - name: config-volume
+          mountPath: /etc/prometheus
+        - name: rules-volume
+          mountPath: /etc/prometheus-rules
+        - name: time
+          mountPath: /etc/localtime
+      volumes:
+      - name: data
+        hostPath:
+          path: /home/cdnadmin/prometheus_data 
+      - name: config-volume
+        configMap:
+          name: prometheus-core
+      - name: rules-volume
+        configMap:
+          name: prometheus-rules
+      - name: time
+        hostPath:
+          path: /etc/localtime
+      affinity:
+        podAffinity: 
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - myapp
+            topologyKey: kubernetes.io/hostname
